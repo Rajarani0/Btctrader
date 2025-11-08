@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Binance Exact Price</title>
+    <link rel="manifest" href="data:application/manifest+json,{'name':'BTC Binance Exact','short_name':'BTC','start_url':'.','display':'standalone','background_color':'#000','theme_color':'#f7931a','icons':[{'src':'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>₿</text></svg>','sizes':'any'}]}">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #000; color: #fff; text-align:center; padding:20px; min-height:100vh; }
+        h1 { color:#f7931a; font-size:2.2rem; margin:15px 0; }
+        #price { font-size:3.5rem; color:#0f0; margin:25px; font-weight:bold; text-shadow: 0 0 15px #0f0; }
+        #signal { font-size:1.4rem; margin:20px; padding:16px; border-radius:15px; font-weight:bold; }
+        .strong-buy { background:#1a4d1a; color:#0f0; border:2px solid #0f0; }
+        .buy { background:#4d4d1a; color:#ff0; border:2px solid #ff0; }
+        .btn { padding:16px 40px; background:#f7931a; color:#000; border:none; border-radius:50px; font-weight:bold; cursor:pointer; margin:15px; font-size:1.3rem; }
+        .btn:hover { background:#ff9500; }
+        .footer { margin-top:30px; font-size:0.8rem; color:#888; }
+    </style>
+</head>
+<body>
+    <h1>BINANCE BTC EXACT PRICE</h1>
+    <div id="price">Connecting to Binance...</div>
+    <div id="signal" class="buy">Waiting for Price...</div>
+    <button class="btn" onclick="checkNow()">SEND SIGNAL</button>
+    <div class="footer">Live Price: Binance WebSocket | Exact Match with App</div>
+
+    <script>
+        const BOT_TOKEN = '8307027195:AAGExi8OLtD8bgZwhX1JOQSHBFr8AuHZSSM';  // ← Yahan apna token daalo
+        const CHAT_ID = '1349670684';      // ← Yahan apna chat ID daalo
+
+        let lastSignalTime = 0;
+        const COOLDOWN = 5 * 60 * 1000;  // 5 min
+        let ws, price = 0;
+
+        // BINANCE LIVE PRICE (EXACT AS APP)
+        function connectWebSocket() {
+            ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                price = parseFloat(data.p).toFixed(2);
+                document.getElementById('price').innerHTML = `<span style="color:#0f0;">BTC: $${price}</span>`;
+            };
+            ws.onclose = () => setTimeout(connectWebSocket, 1000);
+        }
+
+        async function sendTelegram(msg) {
+            if (!BOT_TOKEN.includes(':')) return;
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`);
+            } catch (e) { console.error(e); }
+        }
+
+        function checkNow() {
+            if (price > 0 && (Date.now() - lastSignalTime > COOLDOWN)) {
+                const tp = (parseFloat(price) + 500).toFixed(2);
+                const sl = (parseFloat(price) - 200).toFixed(2);
+                const msg = `*BTC BUY SIGNAL*\nEntry: $${price}\nTP: $${tp}\nSL: $${sl}\nRR: 1:2.5\n_Live from Binance App_`;
+                sendTelegram(msg);
+                document.getElementById('signal').innerHTML = `<div class="strong-buy">SIGNAL SENT!</div>`;
+                lastSignalTime = Date.now();
+            } else {
+                document.getElementById('signal').innerHTML = `<div class="buy">Cooldown Active or No Price</div>`;
+            }
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>
